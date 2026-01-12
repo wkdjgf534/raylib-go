@@ -94,6 +94,17 @@ const (
 	STATUSBAR
 )
 
+// ----------------------------------------------------------------------------------
+// Module Types and Structures Definition
+// ----------------------------------------------------------------------------------
+// Gui control property style color element
+const (
+	BORDER PropertyID = iota
+	BASE
+	TEXT
+	OTHER
+)
+
 // Gui base properties for every control
 // NOTE: RAYGUI_MAX_PROPS_BASE properties (by default 16 properties)
 const (
@@ -537,6 +548,11 @@ func GetStyle(control ControlID, property PropertyID) PropertyValue {
 	ccontrol := C.int(control)
 	cproperty := C.int(property)
 	return PropertyValue(C.GuiGetStyle(ccontrol, cproperty))
+}
+
+func GetColor(control ControlID, property PropertyID) rl.Color {
+	color := C.GuiGetStyle(C.int(control), C.int(property))
+	return rl.Color{R: uint8(color >> 24), G: uint8(color >> 16), B: uint8(color >> 8), A: uint8(color)}
 }
 
 //----------------------------------------------------------------------------------
@@ -1452,4 +1468,71 @@ func Fade(color rl.Color, alpha float32) rl.Color {
 	calpha := C.float(alpha)
 	cresult := C.GuiFade(ccolor, calpha)
 	return rl.Color{R: uint8(cresult.r), G: uint8(cresult.g), B: uint8(cresult.b), A: uint8(cresult.a)}
+}
+
+//----------------------------------------------------------------------------------
+// Additional Draw functions
+//----------------------------------------------------------------------------------
+
+func DrawRectangle(bounds rl.Rectangle, borderWidth int32, borderColor, fillColor rl.Color) {
+	var cbounds C.struct_Rectangle
+	cbounds.x = C.float(bounds.X)
+	cbounds.y = C.float(bounds.Y)
+	cbounds.width = C.float(bounds.Width)
+	cbounds.height = C.float(bounds.Height)
+
+	var cborderColor C.struct_Color
+	cborderColor.r = C.uchar(borderColor.R)
+	cborderColor.g = C.uchar(borderColor.G)
+	cborderColor.b = C.uchar(borderColor.B)
+	cborderColor.a = C.uchar(borderColor.A)
+
+	var cfillColor C.struct_Color
+	cfillColor.r = C.uchar(fillColor.R)
+	cfillColor.g = C.uchar(fillColor.G)
+	cfillColor.b = C.uchar(fillColor.B)
+	cfillColor.a = C.uchar(fillColor.A)
+
+	bw := C.int(borderWidth)
+
+	C.GuiDrawRectangle(cbounds, bw, cborderColor, cfillColor)
+}
+
+// DrawText - static void GuiDrawText(const char *text, Rectangle textBounds, int alignment, Color tint);
+func DrawText(text string, position rl.Rectangle, alignment int32, color rl.Color) {
+	ctext := C.CString(text)
+	defer C.free(unsafe.Pointer(ctext))
+
+	var cposition C.struct_Rectangle
+	cposition.x = C.float(position.X)
+	cposition.y = C.float(position.Y)
+	cposition.width = C.float(position.Width)
+	cposition.height = C.float(position.Height)
+
+	calignment := C.int(alignment)
+	var ccolor C.struct_Color
+	ccolor.r = C.uchar(color.R)
+	ccolor.g = C.uchar(color.G)
+	ccolor.b = C.uchar(color.B)
+	ccolor.a = C.uchar(color.A)
+
+	C.GuiDrawText(ctext, cposition, calignment, ccolor)
+}
+
+// GetTextBounds - static Rectangle GetTextBounds(int control, Rectangle bounds)
+func GetTextBounds(control ControlID, bounds rl.Rectangle) rl.Rectangle {
+	var cbounds C.struct_Rectangle
+	cbounds.x = C.float(bounds.X)
+	cbounds.y = C.float(bounds.Y)
+	cbounds.width = C.float(bounds.Width)
+	cbounds.height = C.float(bounds.Height)
+
+	ccontrol := C.int(control)
+	cretBounds := C.GetTextBounds(ccontrol, cbounds)
+	return rl.Rectangle{
+		X:      float32(cretBounds.x),
+		Y:      float32(cretBounds.y),
+		Width:  float32(cretBounds.width),
+		Height: float32(cretBounds.height),
+	}
 }
